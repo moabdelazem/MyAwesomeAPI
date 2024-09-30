@@ -47,3 +47,18 @@ func (app *Application) GetUserByIDHandler(w http.ResponseWriter, r *http.Reques
 
 	WriteJSON(w, http.StatusOK, user)
 }
+
+func (app *Application) GetUserByUsernameHandler(w http.ResponseWriter, r *http.Request) {
+	// Get The Target User ID
+	username := chi.URLParam(r, "username")
+
+	// Call the storage layer's GetUserByID method to get the user
+	user, err := app.Storage.Users.GetUserByUsername(r.Context(), username)
+
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	WriteJSON(w, http.StatusOK, user)
+}

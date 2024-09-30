@@ -3,8 +3,16 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"time"
 
 	"github.com/google/uuid"
+)
+
+var (
+	ErrNotFound          = errors.New("resource not found")
+	ErrConflict          = errors.New("resource already exists")
+	QueryTimeoutDuration = time.Second * 5
 )
 
 // Posts interface
@@ -18,6 +26,7 @@ type Users interface {
 	GetUsers(context.Context) ([]User, error)
 	GetUserByID(context.Context, uuid.UUID) (*User, error)
 	CreateUser(context.Context, *User) error
+	GetUserByUsername(context.Context, string) (*User, error)
 }
 
 // Storage Store

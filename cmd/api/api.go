@@ -50,7 +50,7 @@ func (app *Application) Mount() *chi.Mux {
 	router.Use(middleware.Timeout(60 * time.Second))
 
 	// Define New Group for v1 API
-	router.Route("/v1", func(r chi.Router) {
+	router.Route("/v1/api", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Welcome to the API"))
@@ -61,8 +61,8 @@ func (app *Application) Mount() *chi.Mux {
 		r.Route("/users", func(r chi.Router) {
 			// Define a route for the users URL path
 			r.Get("/", app.GetUsersHandler)
-			// Define a route for the users URL path
 			r.Get("/{id}", app.GetUserByIDHandler)
+			r.Get("/{username}", app.GetUserByUsernameHandler)
 
 			// Post Request
 			r.Post("/", app.UserRegisterHandler)

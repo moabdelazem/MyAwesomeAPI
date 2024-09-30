@@ -4,16 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Define the errors
 var (
 	ErrDuplicateEmail    = errors.New("a user with that email already exists")
 	ErrDuplicateUsername = errors.New("a user with that username already exists")
-	ErrNotFound          = errors.New("user not found")
 )
 
 // User is a struct that defines the fields of a user
@@ -36,11 +35,13 @@ type Password struct {
 // Set is a method on the Password struct that hashes a password
 // and sets the Text and Hash fields
 func (p *Password) Set(text string) error {
+	// Hash the password
 	hash, err := hashPassword(text)
 	if err != nil {
 		return err
 	}
 
+	// Set the Text and Hash fields
 	p.Text = &text
 	p.Hash = hash
 
@@ -50,8 +51,10 @@ func (p *Password) Set(text string) error {
 // hashPassword is a helper function that hashes a password
 // using bcrypt and returns the hashed password
 func hashPassword(password string) ([]byte, error) {
+	// Generate a new hash
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
+	// Handle any errors
 	if err != nil {
 		return nil, err
 	}
@@ -66,20 +69,24 @@ type UserStore struct {
 
 // Create is a method on the UserStore that creates a new user in the database
 func (us *UserStore) Create(ctx context.Context, tx *sql.Tx, user *User) error {
+
 	query := `
 		INSERT INTO users (id, username, password, email)
 		VALUES ($1, $2, $3, $4) RETURNING id, created_at
 	`
 
 	// Create a new context with a timeout
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
+
+	// Generate a new UUID
+	userID := uuid.New()
 
 	// Execute the query
 	err := tx.QueryRowContext(
 		ctx,
 		query,
-		uuid.New(),
+		userID,
 		user.Username,
 		user.Password.Hash,
 		user.Email,
@@ -102,6 +109,7 @@ func (us *UserStore) Create(ctx context.Context, tx *sql.Tx, user *User) error {
 
 // Get User By ID
 func (us *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
+
 	query := `
 		SELECT id, username, email, created_at
 		FROM users
@@ -109,7 +117,7 @@ func (us *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (*User, erro
 	`
 
 	// Create a new context with a timeout
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	// Execute the query
@@ -129,13 +137,14 @@ func (us *UserStore) GetUserByID(ctx context.Context, id uuid.UUID) (*User, erro
 // !TESTING PURPOSES ONLY!
 // !DELETE THIS FUNCTION IN PRODUCTION
 func (us *UserStore) GetUsers(ctx context.Context) ([]User, error) {
+
 	query := `
 		SELECT id, username, email, created_at
 		FROM users
 	`
 
 	// Create a new context with a timeout
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	// Execute the query
@@ -168,11 +177,38 @@ func (us *UserStore) GetUserByEmail(ctx context.Context, email string) (*User, e
 	`
 
 	// Create a new context with a timeout
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	// Execute the query
 	row := us.db.QueryRowContext(ctx, query, email)
+
+	// Scan the row into the User struct
+	var user User
+	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt)
+	if err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			return nil, ErrNotFound
+		}
+	}
+
+	return &user, nil
+}
+
+func (us *UserStore) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	query := `
+		SELECT id, username, email, created_at
+		FROM users
+		WHERE username = $1
+	`
+
+	// Create a new context with a timeout
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	// Execute the query
+	row := us.db.QueryRowContext(ctx, query, username)
 
 	// Scan the row into the User struct
 	var user User
@@ -196,5 +232,4 @@ func (us *UserStore) CreateUser(ctx context.Context, user *User) error {
 
 		return nil
 	})
-
 }
