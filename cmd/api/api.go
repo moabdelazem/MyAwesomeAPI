@@ -57,8 +57,17 @@ func (app *Application) Mount() *chi.Mux {
 		})
 		// Define a route for the health URL path
 		r.Get("/health", app.HealthCheckHandler)
-		// Define a route for the users URL path
-		r.Get("/users", app.GetUsersHandler)
+
+		r.Route("/users", func(r chi.Router) {
+			// Define a route for the users URL path
+			r.Get("/", app.GetUsersHandler)
+			// Define a route for the users URL path
+			r.Get("/{id}", app.GetUserByIDHandler)
+
+			// Post Request
+			r.Post("/", app.UserRegisterHandler)
+		})
+
 	})
 
 	return router

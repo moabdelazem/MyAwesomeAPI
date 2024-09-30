@@ -3,16 +3,29 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/go-playground/validator"
 )
 
-func ParseJSONBody(r *http.Request, dst interface{}) error {
-	// Decode the request body into the destination
-	err := json.NewDecoder(r.Body).Decode(dst)
-	if err != nil {
-		return err
-	}
+// Validate is a pointer to a validator instance
+var Validate *validator.Validate
 
-	return nil
+// ParseJSONBody is a helper function that decodes the request body into the destination
+func init() {
+	Validate = validator.New()
+}
+
+func ParseJSONBody(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+	// Decode the request body into the destination
+	// MaxBytesReader is used to prevent the request from reading too much data
+	maxBytes := int64(1 << 20) // 1 MB
+	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+
+	// Decode the request body into the destination
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	return decoder.Decode(dst)
 }
 
 func WriteJSON(w http.ResponseWriter, status int, v interface{}) error {
